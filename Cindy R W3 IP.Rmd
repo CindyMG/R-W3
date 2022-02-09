@@ -1,0 +1,310 @@
+---
+title: "Core III WK 3"
+author: "Cindy Gachuhi"
+date: "04/02/2022"
+output: html_document
+---
+
+# R Week 2 IP
+## Defining the question
+You are a Data analyst at Carrefour Kenya and are currently undertaking a project that will inform the marketing department on the most relevant marketing strategies that will result in the highest no. of sales (total price including tax). Your project has been divided into four parts where you'll explore a recent marketing dataset by performing various unsupervised learning techniques and later providing recommendations based on your insights.
+
+Part 1: Dimensionality Reduction
+
+This section of the project entails reducing your dataset to a low dimensional dataset using the t-SNE algorithm or PCA. You will be required to perform your analysis and provide insights gained from your analysis.
+
+Part 2: Feature Selection
+
+This section requires you to perform feature selection through the use of the unsupervised learning methods learned earlier this week. You will be required to perform your analysis and provide insights on the features that contribute the most information to the dataset.
+
+Part 3: Association Rules
+
+This section will require that you create association rules that will allow you to identify relationships between variables in the dataset. You are provided with a separate dataset that comprises groups of items that will be associated with others. Just like in the other sections, you will also be required to provide insights for your analysis.
+
+Part 4: Anomaly Detection
+
+You have also been requested to check whether there are any anomalies in the given sales dataset. The objective of this task being fraud detection.
+
+## Loading and cleaning the datasets
+### Dataset 1
+```{r}
+# Let us import the library 'Data Table'
+# 
+library("data.table")
+cf_data <- fread('http://bit.ly/CarreFourDataset')
+
+# preview the first 6 values
+head(cf_data)
+
+#Checking our dataset
+rows <- nrow(cf_data)
+cols <- ncol(cf_data)
+
+rows
+cols
+
+#1000 rows and 16 columns. Let us clean it.
+```
+####Removing null values
+```{r}
+# using the function 'colSums', we can identify the total number of missing values in each column
+#
+colSums(is.na(cf_data))
+
+# No null values!
+```
+#### Removing duplicates
+```{r}
+# To get rid of duplicates, we will identify the unique values from our dataset and assign them to variable 'unique_cf'
+unique_cf <- cf_data[!duplicated(cf_data), ]
+
+# seeing what these unique items are...
+#unique_cf
+
+# let us confirm whether all the duplicates have been removed
+rows <- nrow(unique_cf)
+rows
+
+# Since our records have remained the same, it means we didn't have any duplicates.
+```
+~
+# Part 1: Dimensionality Reduction
+```{r}
+# One hot encoding our branch column 
+unique(unique_cf$Branch)
+unique_cf$Branch <- factor(unique_cf$Branch,
+levels <- c("A", "B", "C"),
+labels <- c(1,2,3))
+unique(unique_cf$Branch)
+```
+```{r}
+# One hot encoding our Payment column 
+unique(unique_cf$Payment)
+unique_cf$Payment <- factor(unique_cf$Payment,
+levels <- c("Ewallet" , "Cash", "Credit card"),
+labels <- c(1,2,3))
+unique(unique_cf$Payment)
+```
+```{r}
+# One hot encoding our Customer.type column 
+unique(unique_cf$Customer.type)
+unique_cf$Customer.type <- factor(unique_cf$Customer.type,
+levels <- c("Member" , "Normal"),
+labels <- c(1,0))
+unique(unique_cf$Customer.type)
+```
+```{r}
+# One hot encoding our Product.line column 
+unique(unique_cf$Product.line)
+unique_cf$Product.line <- factor(unique_cf$Product.line,
+levels <- c("Health and beauty" , "Electronic accessories", "Home and lifestyle","Sports and travel", "Food and beverages", "Fashion accessories" ),
+labels <- c(1,2,3,4,5,6))
+unique(unique_cf$Product.line)
+```
+```{r}
+# One hot encoding our Gender column
+unique(unique_cf$Gender)
+unique_cf$Gender <- factor(unique_cf$Gender,
+levels <- c("Female", "Male" ),
+labels <- c(0,1))
+unique(unique_cf$Gender)
+```
+```{r}
+# Confirming by using summary the outcomes of the one hot encoding
+cf_new <- unique_cf[, c(2:8,11,12,13,14,15,16)]
+str(cf_new)
+```
+```{r}
+library(Rtsne)
+```
+
+```{r}
+# Transforming the target feature to factors
+carr <- cf_new$Rating
+cf_new$Rating <- as.factor(cf_new$Rating)
+colors = rainbow(length(unique(cf_new$Rating)))
+names(colors) = unique(cf_new$Rating)
+```
+
+```{r}
+# Calling out the reduction technique t-SNE
+cf.tsne <- Rtsne(cf_new[,1:11,13], dims = 2, perplexity = 30, verbose = TRUE, max_iter = 500)
+cf.time <- system.time(Rtsne(cf_new[,1:11,13], dims = 2, perplexity = 30, verbose = TRUE, max_iter = 500))
+```
+```{r}
+# pLOTTING THE OUTCOME
+plot(cf.tsne$Y, t = 'n', main = "cf.tsne")
+text(cf.tsne$Y,labels = cf_new$Rating,col = colors[cf_new$Rating])
+```
+
+# Part 2: Feature Selection
+```{r}
+library(caret)
+library(corrplot)
+```
+
+```{r}
+#Convert the data to factors and integers 
+cf_new2 <- unique_cf[, c(2:8,11,12,13,14,15,16)]
+
+cf_new2$Branch <- as.numeric(cf_new2$Branch)
+cf_new2$Customer.type <- as.numeric(cf_new2$Customer.type)
+cf_new2$Gender <- as.numeric(cf_new2$Gender)
+cf_new2$Product.line <- as.numeric(cf_new2$Product.line)
+cf_new2$Payment <- as.numeric(cf_new2$Payment)
+
+str(cf_new2)
+```
+
+
+```{r}
+# selecting the numerical and integer columns
+CF = (cf_new2[1,3,5:13] )
+str(CF)
+```
+
+
+# Part 3: Association Rules
+
+## Loading and cleaning the dataset
+```{r}
+
+cf2 <- fread('http://bit.ly/SupermarketDatasetII')
+
+# preview the first 6 values
+head(cf2)
+
+#Checking our dataset
+rows <- nrow(cf2)
+cols <- ncol(cf2)
+
+rows
+cols
+```
+
+```{r}
+# Loading the arules library
+
+library(arules)
+```
+
+```{r}
+#Checking the dimensions of the table
+dim(cf2)
+```
+```{r}
+# Verifying the object's class
+class(cf2)
+```
+```{r}
+## Inspecting rules
+rules <- apriori(cf2)
+rules
+```
+```{r}
+summary(rules)
+
+```
+```{r}
+rules <- apriori(cf2,parameter = list(supp =0.001, conf = 0.8))
+inspect(rules)
+```
+
+```{r}
+summary(cf2)
+```
+```{r}
+summary(rules)
+```
+```{r}
+rules <- sort(rules, by = "confidence",decreasing = TRUE)
+inspect(rules[1:5])
+```
+```{r}
+whole.wheat.pasta <- subset(rules, subset = rhs %pin% "whole.wheat.pasta")
+whole.wheat.pasta <- sort(whole.wheat.pasta, by = "confidence", decreasing = TRUE)
+inspect(whole.wheat.pasta[1:5])
+```
+
+# Part 4: Anomaly detection
+```{r}
+#loading the dataset
+cf3 <- fread('http://bit.ly/CarreFourSalesDataset')
+
+# preview the first 6 values
+head(cf3)
+
+#Checking our dataset
+rows <- nrow(cf3)
+cols <- ncol(cf3)
+
+rows
+cols
+```
+```{r}
+# Loading the necessary libraries
+library(tidyverse)
+library(anomalize)
+```
+
+```{r}
+pkg <- c('tidyverse','tibbletime','anomalize','timetk')
+install.packages(pkg)
+```
+```{r}
+install.packages("pacman")
+# Loading the necessary libraries and automatically installing them if not present
+pacman :: p_load(rio,tidyverse, Amelia ,anomalize)
+```
+
+
+```{r}
+# Checking the size and shape of data
+dim(cf3)
+```
+```{r}
+# Viewing data types using str().
+str(cf3)
+```
+
+```{r}
+# To ensure uniformity, I will lowercase all the columns
+names(cf3)<- tolower(names(cf3))
+head(cf3) 
+```
+```{r}
+#changing date to date time. 
+cf3$date <- as.Date(cf3$date, "%m/%d/%y")
+head(cf3)
+```
+```{r}
+install.packages("magrittr") 
+install.packages("dplyr")    
+library(magrittr) 
+library(dplyr)    
+```
+
+```{r}
+# group and tally the number of transactions per day
+cf3.new <- cf3 %>% group_by(date) %>% tally()
+colnames(cf3.new) <- c('transactionDate', 'totalCount')
+head(cf3.new)
+```
+```{r}
+# we now plot using plot_anomaly_decomposition() to visualize out data.
+cf3.new %>%
+    time_decompose(totalCount) %>%
+    anomalize(remainder) %>%
+    plot_anomaly_decomposition(ncol = 1, alpha_dots = 0.5) +
+    ggtitle("Anomaly Detection Plot")
+```
+```{r}
+# plotting the recomposition to try and see anomalies
+#
+cf3.new %>%
+    time_decompose(totalCount) %>%
+    anomalize(remainder) %>%
+    time_recompose() %>%
+    plot_anomalies(time_recomposed = TRUE, ncol = 1, alpha_dots = 0.25, fill="cyan") +
+    ggtitle("Anomaly detection plots")
+``
